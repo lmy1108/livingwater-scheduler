@@ -25,16 +25,21 @@ export default function DayCell({ date, entries, totalMembers, isToday, onClick 
   const sameDashed = am.dashed === pm.dashed;
   const uniform = sameColor && sameDashed;
 
-  const totalFree = new Set([
-    ...entries.filter(e => e.date === date && e.status === 'FREE').map(e => e.memberId),
-  ]).size;
-  const totalBusy = new Set([
-    ...entries.filter(e => e.date === date && e.status === 'BUSY').map(e => e.memberId),
-  ]).size;
-
-  const respondedMembers = new Set(
-    entries.filter(e => e.date === date).map(e => e.memberId),
-  ).size;
+  const dayCounts = useMemo(() => {
+    const memberStatuses = new Map<number, Set<string>>();
+    for (const e of entries) {
+      if (e.date !== date) continue;
+      if (!memberStatuses.has(e.memberId)) memberStatuses.set(e.memberId, new Set());
+      memberStatuses.get(e.memberId)!.add(e.status);
+    }
+    let free = 0, busy = 0;
+    for (const statuses of memberStatuses.values()) {
+      if (!statuses.has('BUSY') && statuses.has('FREE')) free++;
+      else if (statuses.has('BUSY') && !statuses.has('FREE')) busy++;
+      else if (statuses.has('BUSY') && statuses.has('FREE')) busy++;
+    }
+    return { free, busy, responded: memberStatuses.size };
+  }, [entries, date]);
 
   return (
     <button
@@ -59,17 +64,17 @@ export default function DayCell({ date, entries, totalMembers, isToday, onClick 
 
       <div className="relative z-10 flex flex-col items-center gap-0.5 py-1">
         <span className="text-sm font-medium leading-none">{dayNum}</span>
-        {totalMembers > 0 && respondedMembers > 0 && (
+        {totalMembers > 0 && dayCounts.responded > 0 && (
           <span className="text-[10px] leading-none opacity-80">
-            {totalFree > 0 && <>{totalFree}&#10003;</>}
-            {totalBusy > 0 && <>{totalFree > 0 ? ' ' : ''}{totalBusy}&#10007;</>}
+            {dayCounts.free > 0 && <>{dayCounts.free}&#10003;</>}
+            {dayCounts.busy > 0 && <>{dayCounts.free > 0 ? ' ' : ''}{dayCounts.busy}&#10007;</>}
           </span>
         )}
         {totalMembers > 0 && (
           <div className="w-6 h-0.5 bg-gray-300/60 rounded-full overflow-hidden">
             <div
               className="h-full bg-gray-600/60 rounded-full"
-              style={{ width: `${(respondedMembers / totalMembers) * 100}%` }}
+              style={{ width: `${(dayCounts.responded / totalMembers) * 100}%` }}
             />
           </div>
         )}
